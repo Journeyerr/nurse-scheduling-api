@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nurse.scheduling.mapper.ScheduleMapper">
+
+    <!-- 排班结果映射 -->
+    <resultMap id="BaseResultMap" type="com.nurse.scheduling.entity.Schedule">
+        <id column="id" property="id"/>
+        <result column="department_id" property="departmentId"/>
+        <result column="member_id" property="memberId"/>
+        <result column="date" property="date"/>
+        <result column="shift_id" property="shiftId"/>
+        <result column="shift_code" property="shiftCode"/>
+        <result column="shift_name" property="shiftName"/>
+        <result column="shift_color" property="shiftColor"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 排班响应结果映射 -->
+    <resultMap id="ScheduleResponseMap" type="com.nurse.scheduling.dto.schedule.ScheduleResponse">
+        <id column="id" property="id"/>
+        <result column="member_id" property="memberId"/>
+        <result column="date" property="date"/>
+        <result column="shift_id" property="shiftId"/>
+        <result column="shift_code" property="shiftCode"/>
+        <result column="shift_name" property="shiftName"/>
+        <result column="shift_color" property="shiftColor"/>
+    </resultMap>
+
+    <!-- 获取月排班 -->
+    <select id="getMonthlySchedule" resultMap="ScheduleResponseMap">
+        SELECT 
+            id,
+            member_id,
+            date,
+            shift_id,
+            shift_code,
+            shift_name,
+            shift_color
+        FROM biz_schedule
+        WHERE department_id = #{departmentId}
+          AND YEAR(date) = #{year}
+          AND MONTH(date) = #{month}
+          AND deleted = 0
+        ORDER BY date ASC, member_id ASC
+    </select>
+
+    <!-- 获取周排班 -->
+    <select id="getWeeklySchedule" resultMap="ScheduleResponseMap">
+        SELECT 
+            id,
+            member_id,
+            date,
+            shift_id,
+            shift_code,
+            shift_name,
+            shift_color
+        FROM biz_schedule
+        WHERE department_id = #{departmentId}
+          AND date BETWEEN #{startDate} AND #{endDate}
+          AND deleted = 0
+        ORDER BY date ASC, member_id ASC
+    </select>
+
+    <!-- 获取我的排班 -->
+    <select id="getMySchedule" resultMap="ScheduleResponseMap">
+        SELECT 
+            id,
+            member_id,
+            date,
+            shift_id,
+            shift_code,
+            shift_name,
+            shift_color
+        FROM biz_schedule
+        WHERE member_id = #{memberId}
+          AND YEAR(date) = #{year}
+          AND MONTH(date) = #{month}
+          AND deleted = 0
+        ORDER BY date ASC
+    </select>
+
+    <!-- 获取成员在某日期的排班 -->
+    <select id="getMemberScheduleByDate" resultMap="ScheduleResponseMap">
+        SELECT
+            id,
+            member_id,
+            date,
+            shift_id,
+            shift_code,
+            shift_name,
+            shift_color
+        FROM biz_schedule
+        WHERE member_id = #{memberId}
+          AND date = #{date}
+          AND deleted = 0
+    </select>
+
+    <!-- 获取指定日期排班的用户列表 -->
+    <select id="getUsersByDate" resultType="java.util.Map">
+        SELECT DISTINCT
+            u.id,
+            u.nick_name AS nickName,
+            s.shift_id AS shiftId,
+            s.shift_code AS shiftCode,
+            s.shift_name AS shiftName,
+            s.shift_color AS shiftColor
+        FROM biz_schedule s
+        INNER JOIN sys_user u ON s.member_id = u.id
+        WHERE s.date = #{date}
+          AND s.deleted = 0
+          AND u.deleted = 0
+        ORDER BY u.nick_name ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,100 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: nurse-scheduling-system
+
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/nurse_scheduling?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+  # Redis配置
+#  redis:
+#    host: localhost
+#    port: 6379
+#    password:
+#    database: 0
+#    timeout: 5000ms
+#    lettuce:
+#      pool:
+#        max-active: 8
+#        max-wait: -1ms
+#        max-idle: 8
+#        min-idle: 0
+
+  # RabbitMQ配置
+#  rabbitmq:
+#    host: localhost
+#    port: 5672
+#    username: guest
+#    password: guest
+#    virtual-host: /
+#    listener:
+#      simple:
+#        acknowledge-mode: manual
+#        prefetch: 1
+#        retry:
+#          enabled: true
+#          initial-interval: 1000ms
+#          max-attempts: 3
+
+  # Jackson配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# MyBatis-Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.nurse.scheduling.entity
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+    banner: false
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    call-setters-on-nulls: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+# JWT配置
+jwt:
+  secret: NurseSchedulingSystemSecretKey2024VeryLongSecretKeyForJWT
+  expiration: 604800000  # 7天(毫秒)
+  header: Authorization
+
+# 微信小程序配置
+wx:
+  miniapp:
+    appid:
+    secret: 
+
+# 日志配置
+logging:
+  level:
+    root: info
+    com.nurse.scheduling: debug
+    com.nurse.scheduling.mapper: debug
+  file:
+    path: ../log
+    name: ../log/nurse-scheduling.log
+  pattern:
+    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'

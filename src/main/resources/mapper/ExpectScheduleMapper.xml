@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nurse.scheduling.mapper.ExpectScheduleMapper">
+
+    <!-- 期望排班结果映射 -->
+    <resultMap id="BaseResultMap" type="com.nurse.scheduling.entity.ExpectSchedule">
+        <id column="id" property="id"/>
+        <result column="department_id" property="departmentId"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="type" property="type"/>
+        <result column="shift_id" property="shiftId"/>
+        <result column="my_shift_id" property="myShiftId"/>
+        <result column="target_shift_id" property="targetShiftId"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="target_date" property="targetDate"/>
+        <result column="target_user_id" property="targetUserId"/>
+        <result column="target_user_name" property="targetUserName"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="approver_id" property="approverId"/>
+        <result column="approve_time" property="approveTime"/>
+        <result column="approve_remark" property="approveRemark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 期望排班响应结果映射 -->
+    <resultMap id="ExpectScheduleResponseMap" type="com.nurse.scheduling.dto.expect.ExpectScheduleResponse">
+        <id column="id" property="id"/>
+        <result column="type" property="type"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="shift_id" property="shiftId"/>
+        <result column="my_shift_id" property="myShiftId"/>
+        <result column="target_shift_id" property="targetShiftId"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="target_date" property="targetDate"/>
+        <result column="target_user_id" property="targetUserId"/>
+        <result column="target_user_name" property="targetUserName"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 获取所有期望列表 -->
+    <select id="getExpectScheduleList" resultMap="ExpectScheduleResponseMap">
+        SELECT 
+            id,
+            type,
+            user_id,
+            user_name,
+            shift_id,
+            my_shift_id,
+            target_shift_id,
+            start_date,
+            end_date,
+            target_date,
+            target_user_id,
+            target_user_name,
+            remark,
+            status,
+            DATE_FORMAT(create_time, '%Y-%m-%d %H:%i') as create_time
+        FROM biz_expect_schedule
+        WHERE department_id = #{departmentId}
+          AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 获取我的期望列表（包含所有类型） -->
+    <select id="getMyExpectSchedule" resultMap="ExpectScheduleResponseMap">
+        SELECT
+            id,
+            type,
+            user_id,
+            user_name,
+            shift_id,
+            my_shift_id,
+            target_shift_id,
+            start_date,
+            end_date,
+            target_date,
+            target_user_id,
+            target_user_name,
+            remark,
+            status,
+            DATE_FORMAT(create_time, '%Y-%m-%d %H:%i') as create_time
+        FROM biz_expect_schedule
+        WHERE user_id = #{userId}
+          AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 根据用户ID列表获取已审核通过的期望排班 -->
+    <select id="getApprovedByUsers" resultMap="ExpectScheduleResponseMap">
+        SELECT
+            id,
+            type,
+            user_id,
+            user_name,
+            shift_id,
+            my_shift_id,
+            target_shift_id,
+            start_date,
+            end_date,
+            target_date,
+            target_user_id,
+            target_user_name,
+            remark,
+            status,
+            DATE_FORMAT(create_time, '%Y-%m-%d %H:%i') as create_time
+        FROM biz_expect_schedule
+        WHERE user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+          AND status = 'approved'
+          AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 获取科室待审批数量 -->
+    <select id="getPendingCount" resultType="int">
+        SELECT COUNT(*)
+        FROM biz_expect_schedule
+        WHERE department_id = #{departmentId}
+          AND status = 'pending'
+          AND deleted = 0
+    </select>
+
+</mapper>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nurse.scheduling.mapper.LeaveApplyMapper">
+
+    <!-- 假勤申请结果映射 -->
+    <resultMap id="BaseResultMap" type="com.nurse.scheduling.entity.LeaveApply">
+        <id column="id" property="id"/>
+        <result column="department_id" property="departmentId"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="type" property="type"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="days" property="days"/>
+        <result column="target_member_id" property="targetMemberId"/>
+        <result column="reason" property="reason"/>
+        <result column="status" property="status"/>
+        <result column="approver_id" property="approverId"/>
+        <result column="approve_time" property="approveTime"/>
+        <result column="approve_remark" property="approveRemark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+    </resultMap>
+
+    <!-- 假勤申请响应结果映射 -->
+    <resultMap id="LeaveApplyResponseMap" type="com.nurse.scheduling.dto.leave.LeaveApplyResponse">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="type" property="type"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="days" property="days"/>
+        <result column="reason" property="reason"/>
+        <result column="status" property="status"/>
+    </resultMap>
+
+    <!-- 获取所有申请列表 -->
+    <select id="getLeaveApplyList" resultMap="LeaveApplyResponseMap">
+        SELECT 
+            id,
+            user_id,
+            user_name,
+            type,
+            start_date,
+            end_date,
+            days,
+            reason,
+            status
+        FROM biz_leave_apply
+        WHERE department_id = #{departmentId}
+          AND deleted = 0
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 获取我的申请列表 -->
+    <select id="getMyLeaveApplyList" resultMap="LeaveApplyResponseMap">
+        SELECT 
+            id,
+            user_id,
+            user_name,
+            type,
+            start_date,
+            end_date,
+            days,
+            reason,
+            status
+        FROM biz_leave_apply
+        WHERE user_id = #{userId}
+          AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>
