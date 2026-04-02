@@ -65,13 +65,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             save(user);
             log.info("创建新用户，用户ID：{}，昵称：{}", user.getId(), user.getNickName());
         } else {
-            // 更新用户信息（如果传入了新的昵称或头像）
+            // 老用户：只更新头像，不更新昵称（保护用户已修改的昵称）
             boolean needUpdate = false;
-            String nickName = request.getNickName();
-            if (nickName != null && !nickName.trim().isEmpty() && !nickName.equals(user.getNickName())) {
-                user.setNickName(nickName);
-                needUpdate = true;
-            }
+            // 更新头像（如果传入了新的头像）
             if (request.getAvatarUrl() != null && !request.getAvatarUrl().equals(user.getAvatarUrl())) {
                 user.setAvatarUrl(request.getAvatarUrl());
                 needUpdate = true;
@@ -79,7 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (needUpdate) {
                 updateById(user);
             }
-            log.info("用户已存在，用户ID：{}", user.getId());
+            log.info("用户已存在，用户ID：{}，昵称：{}（保留用户昵称，不更新）", user.getId(), user.getNickName());
         }
         
         // 生成token
