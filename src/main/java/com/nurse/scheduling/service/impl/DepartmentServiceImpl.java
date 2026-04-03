@@ -396,4 +396,39 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         // 返回更新后的信息
         return getMemberInfo(memberId);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void quitDepartment(String userId, String departmentId) {
+        log.info("退出科室，用户ID：{}，科室ID：{}", userId, departmentId);
+        
+        Department department = getById(Long.parseLong(departmentId));
+        if (department == null) {
+            log.warn("科室不存在，科室ID：{}", departmentId);
+            throw new BusinessException("科室不存在");
+        }
+        
+        // 不能让创建者退出科室（创建者只能解散或转让）
+        if (department.getCreatorId().toString().equals(userId)) {
+            log.warn("创建者不能退出科室，用户ID：{}", userId);
+            throw new BusinessException("创建者不能退出科室，只能解散或转让");
+        }
+        
+        // 删除成员关系
+        boolean removed = departmentMemberService.lambdaUpdate()
+                .eq(DepartmentMember::getDepartmentId, Long.parseLong(departmentId))
+                .eq(DepartmentMember::getUserId, Long.parseLong(userId))
+                .remove();
+        
+        if (!removed) {
+            log.warn("成员不存在，用户ID：{}，科室ID：{}", userId, departmentId);
+            throw new BusinessException("您不在该科室中");
+        }
+        
+        // 更新科室成员数量
+        department.setMemberCount(department.getMemberCount() - 1);
+        updateById(department);
+        
+        log.info("退出科室成功，用户ID：{}，科室ID：{}", userId, departmentId);
+    }
 }

@@ -23,9 +23,9 @@ public class DepartmentStatisticsResponse {
     private Integer totalMembers;
 
     /**
-     * 平均工作天数
+     * 总工时（小时）
      */
-    private Integer avgDays;
+    private Integer totalHours;
 
     /**
      * 成员排名
@@ -48,8 +48,13 @@ public class DepartmentStatisticsResponse {
         private String name;
 
         /**
-         * 工作天数
+         * 排班数
          */
-        private Integer days;
+        private Integer scheduleCount;
+
+        /**
+         * 总工时（小时）
+         */
+        private Integer totalHours;
     }
 }

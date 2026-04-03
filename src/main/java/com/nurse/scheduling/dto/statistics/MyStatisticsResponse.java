@@ -23,9 +23,9 @@ public class MyStatisticsResponse {
     private Integer restDays;
 
     /**
-     * 请假天数
+     * 总工时（小时）
      */
-    private Integer leaveDays;
+    private Integer totalHours;
 
     /**
      * 各班种详情

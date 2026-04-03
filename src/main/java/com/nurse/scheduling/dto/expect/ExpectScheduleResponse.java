@@ -78,6 +78,11 @@ public class ExpectScheduleResponse {
     private String remark;
 
     /**
+     * 审批意见
+     */
+    private String approveRemark;
+
+    /**
      * 状态
      */
     private String status;

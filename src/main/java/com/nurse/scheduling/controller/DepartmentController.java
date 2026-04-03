@@ -132,4 +132,15 @@ public class DepartmentController {
         MemberInfoResponse response = departmentService.updateMemberInfo(memberId, updateRequest);
         return Result.ok(response);
     }
+
+    /**
+     * 退出科室
+     */
+    @PostMapping("/quit")
+    public Result<Void> quitDepartment(@RequestParam String departmentId) {
+        String userId = UserContext.getUserId();
+        log.info("退出科室，用户ID：{}，科室ID：{}", userId, departmentId);
+        departmentService.quitDepartment(userId, departmentId);
+        return Result.ok();
+    }
 }

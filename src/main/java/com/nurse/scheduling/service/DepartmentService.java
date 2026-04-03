@@ -98,5 +98,13 @@ public interface DepartmentService extends IService<Department> {
      * @return 成员信息
      */
     MemberInfoResponse updateMemberInfo(String memberId, UserUpdateRequest request);
+
+    /**
+     * 退出科室
+     *
+     * @param userId 用户ID
+     * @param departmentId 科室ID
+     */
+    void quitDepartment(String userId, String departmentId);
 }
 
