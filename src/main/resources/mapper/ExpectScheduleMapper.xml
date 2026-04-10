@@ -97,7 +97,7 @@
         ORDER BY create_time DESC
     </select>
 
-    <!-- 根据用户ID列表获取已审核通过的期望排班 -->
+    <!-- 根据用户ID列表获取已审核通过的期望排班（只查大于当天的） -->
     <select id="getApprovedByUsers" resultMap="ExpectScheduleResponseMap">
         SELECT
             id,
@@ -123,6 +123,7 @@
         </foreach>
           AND status = 'approved'
           AND deleted = 0
+          AND (start_date &gt; CURDATE() OR target_date &gt; CURDATE())
         ORDER BY create_time DESC
     </select>
 

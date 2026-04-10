@@ -80,6 +80,8 @@ CREATE TABLE `biz_shift` (
     `time_slots` TEXT COMMENT '时间段JSON（支持多段班）',
     `duration` INT(11) DEFAULT NULL COMMENT '时长（小时）',
     `color` VARCHAR(20) DEFAULT NULL COMMENT '显示颜色',
+    `coefficient` DOUBLE DEFAULT 1.0 COMMENT '班种系数（默认1，用于酬劳计算）',
+    `is_rest` TINYINT(1) DEFAULT 0 COMMENT '是否为休息班 0-否 1-是',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标识 0-未删除 1-已删除',

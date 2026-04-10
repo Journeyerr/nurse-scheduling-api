@@ -48,4 +48,14 @@ public class ShiftCreateRequest {
      */
     @NotBlank(message = "颜色不能为空")
     private String color;
+
+    /**
+     * 班种系数（默认1，用于酬劳计算）
+     */
+    private Double coefficient = 1.0;
+
+    /**
+     * 是否为休息班（0-否 1-是）
+     */
+    private Integer isRest = 0;
 }

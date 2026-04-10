@@ -54,6 +54,8 @@ public class ShiftServiceImpl extends ServiceImpl<ShiftMapper, Shift> implements
         shift.setTimeSlots(request.getTimeSlots());
         shift.setDuration(request.getDuration());
         shift.setColor(request.getColor());
+        shift.setCoefficient(request.getCoefficient() != null ? request.getCoefficient() : 1.0);
+        shift.setIsRest(request.getIsRest() != null ? request.getIsRest() : 0);
         
         save(shift);
         log.info("班种创建成功，班种ID：{}", shift.getId());
@@ -81,6 +83,8 @@ public class ShiftServiceImpl extends ServiceImpl<ShiftMapper, Shift> implements
         shift.setTimeSlots(request.getTimeSlots());
         shift.setDuration(request.getDuration());
         shift.setColor(request.getColor());
+        shift.setCoefficient(request.getCoefficient() != null ? request.getCoefficient() : 1.0);
+        shift.setIsRest(request.getIsRest() != null ? request.getIsRest() : 0);
         
         updateById(shift);
         log.info("班种更新成功，班种ID：{}", shift.getId());

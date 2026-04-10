@@ -28,6 +28,11 @@ public class MyStatisticsResponse {
     private Integer totalHours;
 
     /**
+     * 系数总和
+     */
+    private Double coefficientSum;
+
+    /**
      * 各班种详情
      */
     private List<ShiftDetailDTO> shiftDetails;
@@ -56,5 +61,10 @@ public class MyStatisticsResponse {
          * 数量
          */
         private Integer count;
+
+        /**
+         * 班种系数
+         */
+        private Double coefficient;
     }
 }

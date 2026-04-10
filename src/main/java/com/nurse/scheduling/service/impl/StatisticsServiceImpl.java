@@ -57,9 +57,6 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         List<Schedule> schedules = scheduleService.list(queryWrapper);
 
-        // 计算总排班天数
-        int totalDays = schedules.size();
-
         // 统计各班次数量
         Map<Long, Long> shiftCountMap = schedules.stream()
                 .collect(Collectors.groupingBy(Schedule::getShiftId, Collectors.counting()));
@@ -71,6 +68,8 @@ public class StatisticsServiceImpl implements StatisticsService {
         List<MyStatisticsResponse.ShiftDetailDTO> shiftDetails = new ArrayList<>();
         int totalHours = 0;
         int restDays = 0;
+        int workDays = 0;
+        double coefficientSum = 0.0;
 
         for (Shift shift : shifts) {
             Long count = shiftCountMap.getOrDefault(shift.getId(), 0L);
@@ -80,23 +79,33 @@ public class StatisticsServiceImpl implements StatisticsService {
             detail.setCode(shift.getCode());
             detail.setColor(shift.getColor());
             detail.setCount(count.intValue());
+            detail.setCoefficient(shift.getCoefficient() != null ? shift.getCoefficient() : 1.0);
 
             shiftDetails.add(detail);
 
-            // 统计休息天数（duration = 0）
-            if (shift.getDuration() != null && shift.getDuration() == 0) {
-                restDays += count.intValue();
-            }
+            // 判断是否为休息班种（优先使用 isRest 标记，兼容 duration=0）
+            boolean isRestShift = (shift.getIsRest() != null && shift.getIsRest() == 1)
+                    || (shift.getDuration() != null && shift.getDuration() == 0);
 
-            // 计算总工时
-            if (shift.getDuration() != null && count > 0) {
-                totalHours += shift.getDuration() * count.intValue();
+            if (isRestShift) {
+                // 累加休息天数
+                restDays += count.intValue();
+            } else {
+                // 累加工作排班数和工时
+                workDays += count.intValue();
+                if (count > 0) {
+                    totalHours += shift.getDuration() * count.intValue();
+                    // 累加系数：次数 × 系数
+                    double coefficient = shift.getCoefficient() != null ? shift.getCoefficient() : 1.0;
+                    coefficientSum += coefficient * count.intValue();
+                }
             }
         }
 
-        response.setTotalDays(totalDays);
+        response.setTotalDays(workDays);
         response.setRestDays(restDays);
         response.setTotalHours(totalHours);
+        response.setCoefficientSum(Math.round(coefficientSum * 10) / 10.0);
         response.setShiftDetails(shiftDetails);
 
         return response;
@@ -114,20 +123,32 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         List<Schedule> schedules = scheduleService.list(queryWrapper);
 
-        // 计算总排班数
-        int totalSchedules = schedules.size();
-
         // 获取所有班次信息
         List<Shift> shifts = shiftService.list();
         Map<Long, Shift> shiftMap = shifts.stream()
                 .collect(Collectors.toMap(Shift::getId, shift -> shift));
 
-        // 计算总工时
+        // 计算总排班数（工作排班）、总休息数（休息班）和总工时
+        int totalSchedules = 0;
+        int totalRestSchedules = 0;
         int totalHours = 0;
+        double totalCoefficientSum = 0.0;
         for (Schedule schedule : schedules) {
             Shift shift = shiftMap.get(schedule.getShiftId());
-            if (shift != null && shift.getDuration() != null) {
-                totalHours += shift.getDuration();
+            if (shift != null) {
+                // 优先使用 isRest 标记，兼容 duration=0
+                boolean isRestShift = (shift.getIsRest() != null && shift.getIsRest() == 1)
+                        || (shift.getDuration() != null && shift.getDuration() == 0);
+                if (isRestShift) {
+                    totalRestSchedules++;
+                } else {
+                    totalSchedules++;
+                    if (shift.getDuration() != null && shift.getDuration() > 0) {
+                        totalHours += shift.getDuration();
+                    }
+                    double coefficient = shift.getCoefficient() != null ? shift.getCoefficient() : 1.0;
+                    totalCoefficientSum += coefficient;
+                }
             }
         }
 
@@ -136,36 +157,50 @@ public class StatisticsServiceImpl implements StatisticsService {
         memberQuery.eq(DepartmentMember::getDepartmentId, Long.parseLong(departmentId));
         List<DepartmentMember> members = departmentMemberService.list(memberQuery);
 
-        // 统计每个成员的排班数和工时
-        Map<Long, Long> memberScheduleCount = schedules.stream()
-                .collect(Collectors.groupingBy(Schedule::getMemberId, Collectors.counting()));
-
-        // 计算每个成员的总工时
+        // 统计每个成员的工作排班数、休息数和工时
+        Map<Long, Long> memberWorkScheduleCount = new HashMap<>();
+        Map<Long, Long> memberRestCountMap = new HashMap<>();
         Map<Long, Integer> memberHoursMap = new HashMap<>();
+        Map<Long, Double> memberCoefficientSumMap = new HashMap<>();
         for (Schedule schedule : schedules) {
             Shift shift = shiftMap.get(schedule.getShiftId());
-            if (shift != null && shift.getDuration() != null) {
-                memberHoursMap.merge(schedule.getMemberId(), shift.getDuration(), Integer::sum);
+            if (shift != null) {
+                // 优先使用 isRest 标记，兼容 duration=0
+                boolean isRestShift = (shift.getIsRest() != null && shift.getIsRest() == 1)
+                        || (shift.getDuration() != null && shift.getDuration() == 0);
+                if (isRestShift) {
+                    memberRestCountMap.merge(schedule.getMemberId(), 1L, Long::sum);
+                } else {
+                    memberWorkScheduleCount.merge(schedule.getMemberId(), 1L, Long::sum);
+                    if (shift.getDuration() != null && shift.getDuration() > 0) {
+                        memberHoursMap.merge(schedule.getMemberId(), shift.getDuration(), Integer::sum);
+                    }
+                    // 累加系数
+                    double coefficient = shift.getCoefficient() != null ? shift.getCoefficient() : 1.0;
+                    memberCoefficientSumMap.merge(schedule.getMemberId(), coefficient, Double::sum);
+                }
             }
         }
 
-        // 计算参与人数（有排班的成员数）
-        int participatingMembers = memberScheduleCount.size();
-
-        // 构建成员排行榜（按排班数从大到小排序）
+        // 构建成员排行榜（按工作排班数从大到小排序）
         List<DepartmentStatisticsResponse.MemberRankDTO> memberRank = new ArrayList<>();
         for (DepartmentMember member : members) {
-            Long scheduleCount = memberScheduleCount.getOrDefault(member.getUserId(), 0L);
+            Long scheduleCount = memberWorkScheduleCount.getOrDefault(member.getUserId(), 0L);
+            Integer restCount = memberRestCountMap.getOrDefault(member.getUserId(), 0L).intValue();
             Integer memberHours = memberHoursMap.getOrDefault(member.getUserId(), 0);
 
             // 获取用户信息
             User user = userService.getById(member.getUserId());
             if (user != null) {
+                Double coefficientSum = memberCoefficientSumMap.getOrDefault(member.getUserId(), 0.0);
+
                 DepartmentStatisticsResponse.MemberRankDTO rankDTO = new DepartmentStatisticsResponse.MemberRankDTO();
                 rankDTO.setId(member.getUserId().toString());
                 rankDTO.setName(user.getNickName());
                 rankDTO.setScheduleCount(scheduleCount.intValue());
+                rankDTO.setRestCount(restCount);
                 rankDTO.setTotalHours(memberHours);
+                rankDTO.setCoefficientSum(Math.round(coefficientSum * 10) / 10.0);
 
                 memberRank.add(rankDTO);
             }
@@ -175,8 +210,10 @@ public class StatisticsServiceImpl implements StatisticsService {
         memberRank.sort((a, b) -> b.getScheduleCount().compareTo(a.getScheduleCount()));
 
         response.setTotalSchedules(totalSchedules);
-        response.setTotalMembers(participatingMembers);
+        response.setTotalRestSchedules(totalRestSchedules);
+        response.setTotalCount(members.size());
         response.setTotalHours(totalHours);
+        response.setCoefficientSum(Math.round(totalCoefficientSum * 10) / 10.0);
         response.setMemberRank(memberRank);
 
         return response;

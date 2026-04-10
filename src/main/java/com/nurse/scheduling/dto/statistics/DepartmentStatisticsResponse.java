@@ -13,19 +13,29 @@ import java.util.List;
 public class DepartmentStatisticsResponse {
 
     /**
-     * 总排班数
+     * 总排班数（工作排班）
      */
     private Integer totalSchedules;
 
     /**
-     * 总成员数
+     * 总休息数（休息排班数）
      */
-    private Integer totalMembers;
+    private Integer totalRestSchedules;
+
+    /**
+     * 人数总数（科室成员总数）
+     */
+    private Integer totalCount;
 
     /**
      * 总工时（小时）
      */
     private Integer totalHours;
+
+    /**
+     * 总系数总和
+     */
+    private Double coefficientSum;
 
     /**
      * 成员排名
@@ -48,13 +58,23 @@ public class DepartmentStatisticsResponse {
         private String name;
 
         /**
-         * 排班数
+         * 工作排班数
          */
         private Integer scheduleCount;
+
+        /**
+         * 休息天数
+         */
+        private Integer restCount;
 
         /**
          * 总工时（小时）
          */
         private Integer totalHours;
+
+        /**
+         * 系数总和（各班次次数×系数的累加）
+         */
+        private Double coefficientSum;
     }
 }

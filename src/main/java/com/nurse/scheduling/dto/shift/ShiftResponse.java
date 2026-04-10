@@ -41,4 +41,14 @@ public class ShiftResponse {
      * 显示颜色
      */
     private String color;
+
+    /**
+     * 班种系数（默认1，用于酬劳计算）
+     */
+    private Double coefficient = 1.0;
+
+    /**
+     * 是否为休息班
+     */
+    private Boolean isRest = false;
 }
