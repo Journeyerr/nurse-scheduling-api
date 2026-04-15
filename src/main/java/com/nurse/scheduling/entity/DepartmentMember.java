@@ -35,4 +35,9 @@ public class DepartmentMember extends BaseEntity {
      * 是否为创建者 0-否 1-是
      */
     private Integer isCreator;
+
+    /**
+     * 是否为管理员 0-否 1-是
+     */
+    private Integer isAdmin;
 }

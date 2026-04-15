@@ -106,5 +106,14 @@ public interface DepartmentService extends IService<Department> {
      * @param departmentId 科室ID
      */
     void quitDepartment(String userId, String departmentId);
+
+    /**
+     * 设置管理员
+     *
+     * @param userId 操作者ID（仅创建者可操作）
+     * @param departmentId 科室ID
+     * @param request 管理员设置请求
+     */
+    void setAdmin(String userId, String departmentId, SetAdminRequest request);
 }
 

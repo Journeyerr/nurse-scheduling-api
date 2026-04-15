@@ -277,6 +277,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 response.setId(user.getId().toString());
                 response.setJoinTime(member.getJoinTime());
                 response.setIsCreator(member.getIsCreator() == 1);
+                response.setIsAdmin(member.getIsAdmin() != null && member.getIsAdmin() == 1);
                 responseList.add(response);
             }
         }
@@ -351,6 +352,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         if (member != null) {
             response.setJoinTime(member.getJoinTime());
             response.setIsCreator(member.getIsCreator() == 1);
+            response.setIsAdmin(member.getIsAdmin() != null && member.getIsAdmin() == 1);
         }
         
         log.debug("成员详情查询成功，成员ID：{}", memberId);
@@ -430,5 +432,46 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         updateById(department);
         
         log.info("退出科室成功，用户ID：{}，科室ID：{}", userId, departmentId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void setAdmin(String userId, String departmentId, SetAdminRequest request) {
+        log.info("设置管理员，操作者ID：{}，科室ID：{}，目标成员ID：{}，isAdmin：{}", userId, departmentId, request.getMemberId(), request.getIsAdmin());
+        
+        Department department = getById(Long.parseLong(departmentId));
+        if (department == null) {
+            log.warn("科室不存在，科室ID：{}", departmentId);
+            throw new BusinessException("科室不存在");
+        }
+        
+        // 验证权限（仅创建者可设置管理员）
+        if (!department.getCreatorId().toString().equals(userId)) {
+            log.warn("无权限设置管理员，操作者ID：{}", userId);
+            throw new BusinessException(ResultCode.NO_PERMISSION);
+        }
+        
+        // 不能对自己设置管理员（自己就是创建者）
+        if (request.getMemberId().equals(userId)) {
+            log.warn("不能对创建者自身设置管理员");
+            throw new BusinessException("创建者无需设置管理员");
+        }
+        
+        // 查找目标成员
+        DepartmentMember targetMember = departmentMemberService.lambdaQuery()
+                .eq(DepartmentMember::getDepartmentId, Long.parseLong(departmentId))
+                .eq(DepartmentMember::getUserId, Long.parseLong(request.getMemberId()))
+                .one();
+        
+        if (targetMember == null) {
+            log.warn("目标成员不在该科室中，成员ID：{}", request.getMemberId());
+            throw new BusinessException("该成员不在科室中");
+        }
+        
+        // 设置或取消管理员
+        targetMember.setIsAdmin(request.getIsAdmin() ? 1 : 0);
+        departmentMemberService.updateById(targetMember);
+        
+        log.info("管理员设置成功，成员ID：{}，isAdmin：{}", request.getMemberId(), request.getIsAdmin());
     }
 }

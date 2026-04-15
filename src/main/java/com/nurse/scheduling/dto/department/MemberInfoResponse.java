@@ -61,4 +61,9 @@ public class MemberInfoResponse {
      * 是否为创建者
      */
     private Boolean isCreator;
+
+    /**
+     * 是否为管理员
+     */
+    private Boolean isAdmin;
 }

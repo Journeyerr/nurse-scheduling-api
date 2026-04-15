@@ -143,4 +143,16 @@ public class DepartmentController {
         departmentService.quitDepartment(userId, departmentId);
         return Result.ok();
     }
+
+    /**
+     * 设置/取消管理员（仅创建者可操作）
+     */
+    @PostMapping("/admin")
+    public Result<Void> setAdmin(@RequestParam String departmentId,
+                                  @Valid @RequestBody SetAdminRequest adminRequest) {
+        String userId = UserContext.getUserId();
+        log.info("设置管理员，操作者ID：{}，科室ID：{}，成员ID：{}", userId, departmentId, adminRequest.getMemberId());
+        departmentService.setAdmin(userId, departmentId, adminRequest);
+        return Result.ok();
+    }
 }
