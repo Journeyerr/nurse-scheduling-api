@@ -33,6 +33,12 @@ public class MyStatisticsResponse {
     private Double coefficientSum;
 
     /**
+     * 存欠班天数（正数=存班，负数=欠班，累计值）
+     * 每周标准排班5天，多排则存班，少排则欠班，法定假日上班额外存班
+     */
+    private Integer balanceDays;
+
+    /**
      * 各班种详情
      */
     private List<ShiftDetailDTO> shiftDetails;

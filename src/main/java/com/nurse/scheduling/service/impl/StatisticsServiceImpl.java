@@ -1,6 +1,7 @@
 package com.nurse.scheduling.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.nurse.scheduling.common.HolidayConstants;
 import com.nurse.scheduling.dto.statistics.DepartmentStatisticsResponse;
 import com.nurse.scheduling.dto.statistics.MyStatisticsResponse;
 import com.nurse.scheduling.entity.DepartmentMember;
@@ -17,7 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -63,6 +66,8 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         // 获取所有班种
         List<Shift> shifts = shiftService.list();
+        Map<Long, Shift> shiftMap = shifts.stream()
+                .collect(Collectors.toMap(Shift::getId, shift -> shift));
 
         // 构建班次详情
         List<MyStatisticsResponse.ShiftDetailDTO> shiftDetails = new ArrayList<>();
@@ -107,6 +112,10 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.setTotalHours(totalHours);
         response.setCoefficientSum(Math.round(coefficientSum * 10) / 10.0);
         response.setShiftDetails(shiftDetails);
+
+        // 计算存欠班（正数=存班，负数=欠班）
+        int balanceDays = calculateBalanceDays(schedules, shiftMap, year, month);
+        response.setBalanceDays(balanceDays);
 
         return response;
     }
@@ -162,6 +171,8 @@ public class StatisticsServiceImpl implements StatisticsService {
         Map<Long, Long> memberRestCountMap = new HashMap<>();
         Map<Long, Integer> memberHoursMap = new HashMap<>();
         Map<Long, Double> memberCoefficientSumMap = new HashMap<>();
+        // 按成员分组排班数据（用于存班/欠班计算）
+        Map<Long, List<Schedule>> memberScheduleMap = new HashMap<>();
         for (Schedule schedule : schedules) {
             Shift shift = shiftMap.get(schedule.getShiftId());
             if (shift != null) {
@@ -180,7 +191,14 @@ public class StatisticsServiceImpl implements StatisticsService {
                     memberCoefficientSumMap.merge(schedule.getMemberId(), coefficient, Double::sum);
                 }
             }
+            // 按成员分组
+            memberScheduleMap.computeIfAbsent(schedule.getMemberId(), k -> new ArrayList<>()).add(schedule);
         }
+
+        // 批量查询用户信息，避免循环内单条查询
+        List<Long> userIds = members.stream().map(DepartmentMember::getUserId).collect(Collectors.toList());
+        Map<Long, User> userMap = userService.listByIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
 
         // 构建成员排行榜（按工作排班数从大到小排序）
         List<DepartmentStatisticsResponse.MemberRankDTO> memberRank = new ArrayList<>();
@@ -189,8 +207,8 @@ public class StatisticsServiceImpl implements StatisticsService {
             Integer restCount = memberRestCountMap.getOrDefault(member.getUserId(), 0L).intValue();
             Integer memberHours = memberHoursMap.getOrDefault(member.getUserId(), 0);
 
-            // 获取用户信息
-            User user = userService.getById(member.getUserId());
+            // 从map中获取用户信息
+            User user = userMap.get(member.getUserId());
             if (user != null) {
                 Double coefficientSum = memberCoefficientSumMap.getOrDefault(member.getUserId(), 0.0);
 
@@ -201,6 +219,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                 rankDTO.setRestCount(restCount);
                 rankDTO.setTotalHours(memberHours);
                 rankDTO.setCoefficientSum(Math.round(coefficientSum * 10) / 10.0);
+
+                // 计算该成员的存欠班
+                List<Schedule> memberSchedules = memberScheduleMap.getOrDefault(member.getUserId(), Collections.emptyList());
+                int balanceDays = calculateBalanceDays(memberSchedules, shiftMap, year, month);
+                rankDTO.setBalanceDays(balanceDays);
 
                 memberRank.add(rankDTO);
             }
@@ -217,5 +240,81 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.setMemberRank(memberRank);
 
         return response;
+    }
+
+    /**
+     * 计算存欠班天数（累计值）
+     * 规则：
+     * - 当月应排班天数 = 当月天数 - 周末天数 - 法定假日(非周末) + 调休上班日
+     * - 存欠班 = 实际工作排班天数 - 应排班天数 + 法定假日上班天数(额外存班)
+     * - 正数=存班，负数=欠班
+     *
+     * @param schedules 成员的排班列表
+     * @param shiftMap  班种映射
+     * @param year      年份
+     * @param month     月份
+     * @return 存欠班天数（正数=存班，负数=欠班）
+     */
+    private int calculateBalanceDays(List<Schedule> schedules, Map<Long, Shift> shiftMap, int year, int month) {
+        // 未来月份不计算欠存，直接返回0
+        LocalDate now = LocalDate.now();
+        LocalDate firstDay = LocalDate.of(year, month, 1);
+        if (firstDay.isAfter(now.withDayOfMonth(1))) {
+            return 0;
+        }
+
+        // 构建每日排班映射
+        Map<LocalDate, Schedule> dayMap = new HashMap<>();
+        for (Schedule schedule : schedules) {
+            dayMap.put(schedule.getDate(), schedule);
+        }
+
+        // 当前月只计算到今天，历史月计算整月
+        LocalDate lastDay = firstDay.with(TemporalAdjusters.lastDayOfMonth());
+        boolean isCurrentMonth = !now.isAfter(lastDay);
+        if (isCurrentMonth) {
+            lastDay = now;
+        }
+
+        int expectedWorkDays = 0;   // 当月应排班天数
+        int actualWorkDays = 0;     // 实际工作排班天数
+
+        for (LocalDate d = firstDay; !d.isAfter(lastDay); d = d.plusDays(1)) {
+            DayOfWeek dow = d.getDayOfWeek();
+            boolean isWeekend = dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
+            boolean isHoliday = HolidayConstants.isHoliday(d);
+            boolean isAdjustedWorkday = HolidayConstants.isWorkday(d);
+
+            // 判断这天是否应该上班
+            boolean shouldWork = false;
+            if (isAdjustedWorkday) {
+                // 调休上班日（通常是周末补班）
+                shouldWork = true;
+            } else if (!isWeekend && !isHoliday) {
+                // 普通工作日（非周末、非法定假日）
+                shouldWork = true;
+            }
+
+            if (shouldWork) {
+                expectedWorkDays++;
+            }
+
+            // 统计实际工作排班
+            Schedule schedule = dayMap.get(d);
+            if (schedule != null) {
+                Shift shift = shiftMap.get(schedule.getShiftId());
+                if (shift != null) {
+                    boolean isRestShift = (shift.getIsRest() != null && shift.getIsRest() == 1)
+                            || (shift.getDuration() != null && shift.getDuration() == 0);
+                    if (!isRestShift) {
+                        actualWorkDays++;
+                    }
+                }
+            }
+        }
+
+        // 存欠班 = 实际排班 - 应排班
+        // 法定假日上班自然产生+1效果（应排班天数已减去法定假日，但实际排班包含该天）
+        return actualWorkDays - expectedWorkDays;
     }
 }

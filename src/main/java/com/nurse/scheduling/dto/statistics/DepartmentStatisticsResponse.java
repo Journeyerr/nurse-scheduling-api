@@ -76,5 +76,10 @@ public class DepartmentStatisticsResponse {
          * 系数总和（各班次次数×系数的累加）
          */
         private Double coefficientSum;
+
+        /**
+         * 存欠班天数（正数=存班，负数=欠班，累计值）
+         */
+        private Integer balanceDays;
     }
 }

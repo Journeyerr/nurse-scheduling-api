@@ -43,6 +43,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                         "/user/wxLogin",
+                        "/holiday/list",
                         "/error",
                         "/swagger-resources/**",
                         "/webjars/**",
