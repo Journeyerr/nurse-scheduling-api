@@ -3,6 +3,7 @@ package com.nurse.scheduling.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.nurse.scheduling.entity.Schedule;
 import com.nurse.scheduling.dto.schedule.ScheduleResponse;
+import com.nurse.scheduling.dto.swap.UserScheduleVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
