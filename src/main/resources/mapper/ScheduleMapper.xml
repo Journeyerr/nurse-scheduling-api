@@ -98,7 +98,7 @@
     </select>
 
     <!-- 获取指定日期排班的用户列表 -->
-    <select id="getUsersByDate" resultType="java.util.Map">
+    <select id="getUsersByDate" resultType="com.nurse.scheduling.dto.swap.UserScheduleVO">
         SELECT DISTINCT
             u.id,
             u.nick_name AS nickName,

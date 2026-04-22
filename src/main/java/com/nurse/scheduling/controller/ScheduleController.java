@@ -3,6 +3,7 @@ package com.nurse.scheduling.controller;
 import com.nurse.scheduling.common.Result;
 import com.nurse.scheduling.context.UserContext;
 import com.nurse.scheduling.dto.schedule.BatchScheduleRequest;
+import com.nurse.scheduling.dto.schedule.DailyScheduleVO;
 import com.nurse.scheduling.dto.schedule.ScheduleAddRequest;
 import com.nurse.scheduling.dto.schedule.ScheduleResponse;
 import com.nurse.scheduling.service.ScheduleService;
@@ -101,6 +102,19 @@ public class ScheduleController {
         log.info("获取我的排班，用户ID：{}，年月：{}", userId, yearMonths);
         
         List<ScheduleResponse> response = scheduleService.getMySchedule(userId, yearMonths);
+        return Result.ok(response);
+    }
+
+    /**
+     * 获取某天科室所有排班
+     * @param date 日期，格式 yyyy-MM-dd
+     * @param departmentId 科室ID
+     */
+    @GetMapping("/daily")
+    public Result<List<DailyScheduleVO>> getDailySchedule(@RequestParam String date,
+                                                           @RequestParam String departmentId) {
+        log.info("获取某天排班，日期：{}，科室ID：{}", date, departmentId);
+        List<DailyScheduleVO> response = scheduleService.getDailySchedule(date, departmentId);
         return Result.ok(response);
     }
 }

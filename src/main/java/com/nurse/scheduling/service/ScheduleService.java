@@ -3,11 +3,12 @@ package com.nurse.scheduling.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.nurse.scheduling.dto.schedule.BatchScheduleRequest;
 import com.nurse.scheduling.dto.schedule.ScheduleAddRequest;
+import com.nurse.scheduling.dto.schedule.DailyScheduleVO;
 import com.nurse.scheduling.dto.schedule.ScheduleResponse;
+import com.nurse.scheduling.dto.swap.UserScheduleVO;
 import com.nurse.scheduling.entity.Schedule;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 排班服务接口
@@ -83,6 +84,15 @@ public interface ScheduleService extends IService<Schedule> {
      * @param date 日期
      * @return 用户列表（id, nickName）
      */
-    List<Map<String, Object>> getUsersByDate(String date);
+    List<UserScheduleVO> getUsersByDate(String date);
+
+    /**
+     * 获取某天科室所有排班
+     *
+     * @param date 日期
+     * @param departmentId 科室ID
+     * @return 排班列表（含成员姓名和班次信息）
+     */
+    List<DailyScheduleVO> getDailySchedule(String date, String departmentId);
 }
 

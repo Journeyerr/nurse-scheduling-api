@@ -1,25 +1,29 @@
 package com.nurse.scheduling.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.nurse.scheduling.common.BusinessException;
 import com.nurse.scheduling.dto.schedule.BatchScheduleRequest;
+import com.nurse.scheduling.dto.schedule.DailyScheduleVO;
 import com.nurse.scheduling.dto.schedule.ScheduleAddRequest;
 import com.nurse.scheduling.dto.schedule.ScheduleResponse;
+import com.nurse.scheduling.dto.swap.UserScheduleVO;
 import com.nurse.scheduling.entity.Schedule;
 import com.nurse.scheduling.entity.Shift;
+import com.nurse.scheduling.entity.User;
 import com.nurse.scheduling.mapper.ScheduleMapper;
 import com.nurse.scheduling.service.ScheduleService;
 import com.nurse.scheduling.service.ShiftService;
+import com.nurse.scheduling.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 排班服务实现类
@@ -32,6 +36,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
 
     @Autowired
     private ShiftService shiftService;
+
+    @Autowired
+    private UserService userService;
 
     @Override
     public List<ScheduleResponse> getMonthlySchedule(String departmentId, Integer year, Integer month) {
@@ -234,11 +241,56 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
     }
 
     @Override
-    public List<Map<String, Object>> getUsersByDate(String date) {
+    public List<UserScheduleVO> getUsersByDate(String date) {
         log.info("获取指定日期排班的用户列表，日期：{}", date);
         LocalDate localDate = LocalDate.parse(date);
-        List<Map<String, Object>> users = baseMapper.getUsersByDate(localDate);
+        List<UserScheduleVO> users = baseMapper.getUsersByDate(localDate);
         log.debug("查询成功，用户数量：{}", users.size());
         return users;
+    }
+
+    @Override
+    public List<DailyScheduleVO> getDailySchedule(String date, String departmentId) {
+        log.info("获取某天科室排班，日期：{}，科室ID：{}", date, departmentId);
+        LocalDate localDate = LocalDate.parse(date);
+        Long deptId = Long.parseLong(departmentId);
+        // 查询该科室该天所有排班，关联用户和班种信息
+        LambdaQueryWrapper<Schedule> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Schedule::getDate, localDate)
+                .eq(Schedule::getDepartmentId, deptId);
+        List<Schedule> schedules = this.list(queryWrapper);
+
+        if (schedules.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 批量查询用户信息
+        List<Long> memberIds = schedules.stream().map(Schedule::getMemberId).distinct().collect(Collectors.toList());
+        Map<Long, User> userMap = userService.listByIds(memberIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        // 批量查询班种信息
+        List<Long> shiftIds = schedules.stream().map(Schedule::getShiftId).distinct().collect(Collectors.toList());
+        Map<Long, Shift> shiftMap = shiftService.listByIds(shiftIds).stream()
+                .collect(Collectors.toMap(Shift::getId, s -> s));
+
+        // 组装结果
+        List<DailyScheduleVO> result = new ArrayList<>();
+        for (Schedule schedule : schedules) {
+            User user = userMap.get(schedule.getMemberId());
+            Shift shift = shiftMap.get(schedule.getShiftId());
+            if (user != null) {
+                DailyScheduleVO vo = new DailyScheduleVO();
+                vo.setMemberId(String.valueOf(user.getId()));
+                vo.setMemberName(user.getNickName());
+                if (shift != null) {
+                    vo.setShiftCode(shift.getCode());
+                    vo.setShiftName(shift.getName());
+                    vo.setShiftColor(shift.getColor());
+                }
+                result.add(vo);
+            }
+        }
+        return result;
     }
 }

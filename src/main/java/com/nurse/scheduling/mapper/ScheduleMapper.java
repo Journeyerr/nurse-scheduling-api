@@ -69,5 +69,5 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
      * @param date 日期
      * @return 用户列表（id, nickName）
      */
-    List<java.util.Map<String, Object>> getUsersByDate(@Param("date") LocalDate date);
+    List<UserScheduleVO> getUsersByDate(@Param("date") LocalDate date);
 }
