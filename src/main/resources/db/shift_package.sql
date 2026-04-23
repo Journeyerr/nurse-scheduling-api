@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS `biz_shift_package` (
   `deleted` tinyint(1) DEFAULT '0' COMMENT '逻辑删除标识 0-未删除 1-已删除',
   PRIMARY KEY (`id`),
   KEY `idx_department_id` (`department_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班种套餐表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班种套班表';

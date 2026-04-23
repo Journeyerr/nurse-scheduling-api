@@ -24,7 +24,7 @@ public class ShiftPackage extends BaseEntity {
     private Long departmentId;
 
     /**
-     * 套餐名称
+     * 套班名称
      */
     private String name;
 

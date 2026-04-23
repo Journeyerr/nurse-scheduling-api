@@ -60,7 +60,7 @@ public class ShiftPackageController {
      */
     @DeleteMapping("/delete/{id}")
     public Result<Void> deletePackage(@PathVariable String id) {
-        log.info("删除套餐，套餐ID：{}", id);
+        log.info("删除套班，套班ID：{}", id);
         shiftPackageService.deletePackage(id);
         return Result.ok();
     }

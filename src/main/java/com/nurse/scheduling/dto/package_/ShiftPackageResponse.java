@@ -19,7 +19,7 @@ public class ShiftPackageResponse {
     private Long id;
 
     /**
-     * 套餐名称
+     * 套班名称
      */
     private String name;
 

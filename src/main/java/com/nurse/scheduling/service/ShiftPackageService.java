@@ -62,7 +62,7 @@ public class ShiftPackageService {
     }
 
     /**
-     * 更新套餐
+     * 更新套班
      */
     public ShiftPackageResponse updatePackage(ShiftPackageCreateRequest request) {
         ShiftPackage pkg = shiftPackageMapper.selectById(request.getId());

@@ -5,7 +5,7 @@ import com.nurse.scheduling.entity.ShiftPackage;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 班种套餐Mapper
+ * 班种套班Mapper
  *
  * @author nurse-scheduling
  */
