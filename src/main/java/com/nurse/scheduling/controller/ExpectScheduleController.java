@@ -1,5 +1,6 @@
 package com.nurse.scheduling.controller;
 
+import com.nurse.scheduling.common.PageResult;
 import com.nurse.scheduling.common.Result;
 import com.nurse.scheduling.dto.expect.ExpectScheduleRequest;
 import com.nurse.scheduling.dto.expect.ExpectScheduleResponse;
@@ -25,22 +26,26 @@ public class ExpectScheduleController {
     private ExpectScheduleService expectScheduleService;
 
     /**
-     * 获取我的期望排班列表
+     * 获取我的期望排班列表（分页）
      */
     @GetMapping("/my")
-    public Result<List<ExpectScheduleResponse>> getMyExpectSchedule() {
-        log.info("获取我的期望排班列表");
-        List<ExpectScheduleResponse> response = expectScheduleService.getMyExpectSchedule();
+    public Result<PageResult<ExpectScheduleResponse>> getMyExpectSchedule(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        log.info("获取我的期望排班列表，页码：{}，每页：{}", page, pageSize);
+        PageResult<ExpectScheduleResponse> response = expectScheduleService.getMyExpectSchedule(page, pageSize);
         return Result.ok(response);
     }
 
     /**
-     * 获取科室所有期望排班列表
+     * 获取科室所有期望排班列表（分页）
      */
     @GetMapping("/list")
-    public Result<List<ExpectScheduleResponse>> getExpectScheduleList() {
-        log.info("获取科室所有期望排班列表");
-        List<ExpectScheduleResponse> response = expectScheduleService.getExpectScheduleList();
+    public Result<PageResult<ExpectScheduleResponse>> getExpectScheduleList(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        log.info("获取科室所有期望排班列表，页码：{}，每页：{}", page, pageSize);
+        PageResult<ExpectScheduleResponse> response = expectScheduleService.getExpectScheduleList(page, pageSize);
         return Result.ok(response);
     }
 
@@ -92,5 +97,23 @@ public class ExpectScheduleController {
         log.info("获取待审批数量");
         int count = expectScheduleService.getPendingCount();
         return Result.ok(count);
+    }
+
+    /**
+     * 取消申请
+     */
+    @PostMapping("/cancel")
+    public Result<Void> cancelExpectSchedule(@RequestBody CancelRequest request) {
+        log.info("取消申请：{}", request.getId());
+        expectScheduleService.cancelExpectSchedule(request.getId());
+        return Result.ok();
+    }
+
+    /**
+     * 取消请求DTO
+     */
+    @lombok.Data
+    public static class CancelRequest {
+        private String id;
     }
 }

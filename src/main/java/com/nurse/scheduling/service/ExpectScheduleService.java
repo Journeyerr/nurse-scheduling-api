@@ -1,6 +1,7 @@
 package com.nurse.scheduling.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.nurse.scheduling.common.PageResult;
 import com.nurse.scheduling.dto.expect.ExpectScheduleRequest;
 import com.nurse.scheduling.dto.expect.ExpectScheduleResponse;
 import com.nurse.scheduling.dto.swap.SwapRequestDto;
@@ -16,18 +17,22 @@ import java.util.List;
 public interface ExpectScheduleService extends IService<ExpectSchedule> {
 
     /**
-     * 获取我的申请列表
+     * 获取我的申请列表（分页）
      *
-     * @return 申请列表
+     * @param page 页码
+     * @param pageSize 每页条数
+     * @return 分页结果
      */
-    List<ExpectScheduleResponse> getMyExpectSchedule();
+    PageResult<ExpectScheduleResponse> getMyExpectSchedule(int page, int pageSize);
 
     /**
-     * 获取科室所有申请列表
+     * 获取科室所有申请列表（分页）
      *
-     * @return 申请列表
+     * @param page 页码
+     * @param pageSize 每页条数
+     * @return 分页结果
      */
-    List<ExpectScheduleResponse> getExpectScheduleList();
+    PageResult<ExpectScheduleResponse> getExpectScheduleList(int page, int pageSize);
 
     /**
      * 提交期望排班
@@ -76,4 +81,11 @@ public interface ExpectScheduleService extends IService<ExpectSchedule> {
      * @return 待审批数量
      */
     int getPendingCount();
+
+    /**
+     * 取消申请
+     *
+     * @param id 申请ID
+     */
+    void cancelExpectSchedule(String id);
 }

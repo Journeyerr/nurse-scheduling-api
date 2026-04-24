@@ -3,6 +3,7 @@ package com.nurse.scheduling.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.nurse.scheduling.common.PageResult;
 import com.nurse.scheduling.context.UserContext;
 import com.nurse.scheduling.dto.expect.ExpectScheduleRequest;
 import com.nurse.scheduling.dto.expect.ExpectScheduleResponse;
@@ -52,20 +53,22 @@ public class ExpectScheduleServiceImpl extends ServiceImpl<ExpectScheduleMapper,
     private ShiftService shiftService;
 
     @Override
-    public List<ExpectScheduleResponse> getMyExpectSchedule() {
+    public PageResult<ExpectScheduleResponse> getMyExpectSchedule(int page, int pageSize) {
         Long userId = UserContext.getUserIdAsLong();
-        log.info("获取我的申请列表，用户ID：{}", userId);
+        log.info("获取我的申请列表，用户ID：{}，页码：{}，每页：{}", userId, page, pageSize);
         
-        List<ExpectScheduleResponse> list = expectScheduleMapper.getMyExpectSchedule(userId);
-        log.info("查询到{}条申请记录", list.size());
+        int offset = (page - 1) * pageSize;
+        List<ExpectScheduleResponse> list = expectScheduleMapper.getMyExpectSchedule(userId, pageSize, offset);
+        int total = expectScheduleMapper.getMyExpectScheduleCount(userId);
+        log.info("查询到{}条申请记录，总计{}条", list.size(), total);
         
-        return list;
+        return new PageResult<>(list, total, page, pageSize);
     }
 
     @Override
-    public List<ExpectScheduleResponse> getExpectScheduleList() {
+    public PageResult<ExpectScheduleResponse> getExpectScheduleList(int page, int pageSize) {
         Long userId = UserContext.getUserIdAsLong();
-        log.info("获取科室所有申请列表，用户ID：{}", userId);
+        log.info("获取科室所有申请列表，用户ID：{}，页码：{}，每页：{}", userId, page, pageSize);
         
         // 获取当前用户的科室ID
         DepartmentMember member = departmentMemberService.lambdaQuery()
@@ -74,14 +77,16 @@ public class ExpectScheduleServiceImpl extends ServiceImpl<ExpectScheduleMapper,
         
         if (member == null) {
             log.warn("用户未加入任何科室，用户ID：{}", userId);
-            return List.of();
+            return new PageResult<>(List.of(), 0, page, pageSize);
         }
         
         Long departmentId = member.getDepartmentId();
-        List<ExpectScheduleResponse> list = expectScheduleMapper.getExpectScheduleList(departmentId);
-        log.info("查询到{}条申请记录", list.size());
+        int offset = (page - 1) * pageSize;
+        List<ExpectScheduleResponse> list = expectScheduleMapper.getExpectScheduleList(departmentId, pageSize, offset);
+        int total = expectScheduleMapper.getExpectScheduleCount(departmentId);
+        log.info("查询到{}条申请记录，总计{}条", list.size(), total);
         
-        return list;
+        return new PageResult<>(list, total, page, pageSize);
     }
 
     @Override
@@ -308,5 +313,33 @@ public class ExpectScheduleServiceImpl extends ServiceImpl<ExpectScheduleMapper,
         log.info("查询到{}条待审批记录", count);
         
         return count;
+    }
+
+    @Override
+    public void cancelExpectSchedule(String id) {
+        Long userId = UserContext.getUserIdAsLong();
+        log.info("取消申请，用户ID：{}，申请ID：{}", userId, id);
+        
+        ExpectSchedule expectSchedule = getById(Long.parseLong(id));
+        if (expectSchedule == null) {
+            log.error("申请不存在，ID：{}", id);
+            throw new RuntimeException("申请不存在");
+        }
+        
+        // 只能取消自己的申请
+        if (!expectSchedule.getUserId().equals(userId)) {
+            log.error("无权取消他人申请，用户ID：{}，申请用户ID：{}", userId, expectSchedule.getUserId());
+            throw new RuntimeException("无权取消他人申请");
+        }
+        
+        // 只有待审批状态才能取消
+        if (!"pending".equals(expectSchedule.getStatus())) {
+            log.error("只有待审批状态才能取消，当前状态：{}", expectSchedule.getStatus());
+            throw new RuntimeException("只有待审批状态才能取消");
+        }
+        
+        expectSchedule.setStatus("cancelled");
+        updateById(expectSchedule);
+        log.info("申请取消成功，ID：{}", id);
     }
 }
