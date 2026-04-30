@@ -261,11 +261,13 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     /**
      * 重算存欠班并保存到 DepartmentMember
-     * 从加入月份逐月累加到当前月，当前月只算到今天
+     * 从用户第一次排班的月份逐月累加到当前月，当前月只算到今天
      */
     private void recalculateAndSaveBalanceDays(DepartmentMember member, Map<Long, Shift> shiftMap) {
-        LocalDate joinTime = member.getJoinTime();
-        if (joinTime == null) {
+        // 查询该用户最早的排班记录，从第一次排班开始算
+        LocalDate firstScheduleDate = getFirstScheduleDate(member.getUserId());
+        if (firstScheduleDate == null) {
+            // 从未排过班，存欠班为0
             member.setBalanceDays(0);
             departmentMemberService.updateById(member);
             return;
@@ -273,7 +275,8 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         LocalDate now = LocalDate.now();
         LocalDate currentMonthStart = now.withDayOfMonth(1);
-        LocalDate startMonth = joinTime.withDayOfMonth(1);
+        LocalDate startMonth = firstScheduleDate.withDayOfMonth(1);
+        LocalDate joinTime = member.getJoinTime();
 
         int totalBalance = 0;
         LocalDate monthIter = startMonth;
@@ -288,6 +291,18 @@ public class StatisticsServiceImpl implements StatisticsService {
         member.setBalanceDays(totalBalance);
         departmentMemberService.updateById(member);
         log.debug("重算存欠班：用户={}, 科室={}, balance={}", member.getUserId(), member.getDepartmentId(), totalBalance);
+    }
+
+    /**
+     * 查询用户最早的排班日期
+     */
+    private LocalDate getFirstScheduleDate(Long userId) {
+        LambdaQueryWrapper<Schedule> query = new LambdaQueryWrapper<>();
+        query.eq(Schedule::getMemberId, userId)
+                .orderByAsc(Schedule::getDate)
+                .last("LIMIT 1");
+        Schedule first = scheduleMapper.selectOne(query);
+        return first != null ? first.getDate() : null;
     }
 
     /**
