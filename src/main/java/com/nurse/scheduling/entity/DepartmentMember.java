@@ -40,4 +40,11 @@ public class DepartmentMember extends BaseEntity {
      * 是否为管理员 0-否 1-是
      */
     private Integer isAdmin;
+
+    /**
+     * 存欠班天数（正数=存班，负数=欠班，累计值）
+     * 加入科室开始计算，退出科室清零
+     * null表示尚未计算，需要触发重算
+     */
+    private Integer balanceDays;
 }

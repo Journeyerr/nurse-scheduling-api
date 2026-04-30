@@ -8,7 +8,6 @@ import com.nurse.scheduling.entity.DepartmentMember;
 import com.nurse.scheduling.entity.Schedule;
 import com.nurse.scheduling.entity.Shift;
 import com.nurse.scheduling.entity.User;
-import com.nurse.scheduling.mapper.ScheduleMapper;
 import com.nurse.scheduling.service.DepartmentMemberService;
 import com.nurse.scheduling.service.ScheduleService;
 import com.nurse.scheduling.service.ShiftService;
@@ -37,9 +36,6 @@ public class StatisticsServiceImpl implements StatisticsService {
     private ScheduleService scheduleService;
 
     @Autowired
-    private ScheduleMapper scheduleMapper;
-
-    @Autowired
     private DepartmentMemberService departmentMemberService;
 
     @Autowired
@@ -49,7 +45,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private UserService userService;
 
     @Override
-    public MyStatisticsResponse getMyStatistics(String memberId, Integer year, Integer month) {
+    public MyStatisticsResponse getMyStatistics(String memberId, Integer year, Integer month, String departmentId) {
         MyStatisticsResponse response = new MyStatisticsResponse();
 
         // 查询该成员当月的所有排班
@@ -57,6 +53,9 @@ public class StatisticsServiceImpl implements StatisticsService {
         queryWrapper.eq(Schedule::getMemberId, Long.parseLong(memberId))
                 .apply("YEAR(date) = {0}", year)
                 .apply("MONTH(date) = {0}", month);
+        if (departmentId != null) {
+            queryWrapper.eq(Schedule::getDepartmentId, Long.parseLong(departmentId));
+        }
 
         List<Schedule> schedules = scheduleService.list(queryWrapper);
 
@@ -113,8 +112,18 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.setCoefficientSum(Math.round(coefficientSum * 10) / 10.0);
         response.setShiftDetails(shiftDetails);
 
-        // 计算存欠班（正数=存班，负数=欠班）
-        int balanceDays = calculateBalanceDays(schedules, shiftMap, year, month);
+        // 直接从 DepartmentMember 读取存欠班
+        int balanceDays = 0;
+        DepartmentMember member = departmentId != null
+                ? getDepartmentMember(Long.parseLong(memberId), Long.parseLong(departmentId))
+                : getDepartmentMemberByUser(Long.parseLong(memberId));
+        if (member != null) {
+            if (member.getBalanceDays() == null) {
+                // 首次访问，触发重算
+                recalculateAndSaveBalanceDays(member, shiftMap);
+            }
+            balanceDays = member.getBalanceDays() != null ? member.getBalanceDays() : 0;
+        }
         response.setBalanceDays(balanceDays);
 
         return response;
@@ -171,8 +180,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         Map<Long, Long> memberRestCountMap = new HashMap<>();
         Map<Long, Integer> memberHoursMap = new HashMap<>();
         Map<Long, Double> memberCoefficientSumMap = new HashMap<>();
-        // 按成员分组排班数据（用于存班/欠班计算）
-        Map<Long, List<Schedule>> memberScheduleMap = new HashMap<>();
         for (Schedule schedule : schedules) {
             Shift shift = shiftMap.get(schedule.getShiftId());
             if (shift != null) {
@@ -191,8 +198,6 @@ public class StatisticsServiceImpl implements StatisticsService {
                     memberCoefficientSumMap.merge(schedule.getMemberId(), coefficient, Double::sum);
                 }
             }
-            // 按成员分组
-            memberScheduleMap.computeIfAbsent(schedule.getMemberId(), k -> new ArrayList<>()).add(schedule);
         }
 
         // 批量查询用户信息，避免循环内单条查询
@@ -220,10 +225,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                 rankDTO.setTotalHours(memberHours);
                 rankDTO.setCoefficientSum(Math.round(coefficientSum * 10) / 10.0);
 
-                // 计算该成员的存欠班
-                List<Schedule> memberSchedules = memberScheduleMap.getOrDefault(member.getUserId(), Collections.emptyList());
-                int balanceDays = calculateBalanceDays(memberSchedules, shiftMap, year, month);
-                rankDTO.setBalanceDays(balanceDays);
+                // 直接从 DepartmentMember 读取存欠班
+                if (member.getBalanceDays() == null) {
+                    recalculateAndSaveBalanceDays(member, shiftMap);
+                }
+                rankDTO.setBalanceDays(member.getBalanceDays() != null ? member.getBalanceDays() : 0);
 
                 memberRank.add(rankDTO);
             }
@@ -242,25 +248,111 @@ public class StatisticsServiceImpl implements StatisticsService {
         return response;
     }
 
+    @Override
+    public void recalculateAndSaveBalanceDays(Long userId, Long departmentId) {
+        DepartmentMember member = getDepartmentMember(userId, departmentId);
+        if (member == null) {
+            return;
+        }
+        Map<Long, Shift> shiftMap = shiftService.list().stream()
+                .collect(Collectors.toMap(Shift::getId, shift -> shift));
+        recalculateAndSaveBalanceDays(member, shiftMap);
+    }
+
     /**
-     * 计算存欠班天数（累计值）
+     * 重算存欠班并保存到 DepartmentMember
+     * 从加入月份逐月累加到当前月，当前月只算到今天
+     */
+    private void recalculateAndSaveBalanceDays(DepartmentMember member, Map<Long, Shift> shiftMap) {
+        LocalDate joinTime = member.getJoinTime();
+        if (joinTime == null) {
+            member.setBalanceDays(0);
+            departmentMemberService.updateById(member);
+            return;
+        }
+
+        LocalDate now = LocalDate.now();
+        LocalDate currentMonthStart = now.withDayOfMonth(1);
+        LocalDate startMonth = joinTime.withDayOfMonth(1);
+
+        int totalBalance = 0;
+        LocalDate monthIter = startMonth;
+        while (!monthIter.isAfter(currentMonthStart)) {
+            List<Schedule> monthSchedules = getSchedulesForMonth(member.getUserId(), monthIter);
+            int monthlyBalance = calculateBalanceDaysForMonth(monthSchedules, shiftMap,
+                    monthIter.getYear(), monthIter.getMonthValue(), joinTime);
+            totalBalance += monthlyBalance;
+            monthIter = monthIter.plusMonths(1);
+        }
+
+        member.setBalanceDays(totalBalance);
+        departmentMemberService.updateById(member);
+        log.debug("重算存欠班：用户={}, 科室={}, balance={}", member.getUserId(), member.getDepartmentId(), totalBalance);
+    }
+
+    /**
+     * 查询科室成员记录
+     */
+    private DepartmentMember getDepartmentMember(Long userId, Long departmentId) {
+        LambdaQueryWrapper<DepartmentMember> query = new LambdaQueryWrapper<>();
+        query.eq(DepartmentMember::getUserId, userId)
+                .eq(DepartmentMember::getDepartmentId, departmentId);
+        return departmentMemberService.getOne(query, false);
+    }
+
+    /**
+     * 通过用户ID查询科室成员记录（一个用户只属于一个科室）
+     */
+    private DepartmentMember getDepartmentMemberByUser(Long userId) {
+        LambdaQueryWrapper<DepartmentMember> query = new LambdaQueryWrapper<>();
+        query.eq(DepartmentMember::getUserId, userId)
+                .last("LIMIT 1");
+        return departmentMemberService.getOne(query, false);
+    }
+
+    /**
+     * 查询指定月份的排班数据
+     */
+    private List<Schedule> getSchedulesForMonth(Long userId, LocalDate month) {
+        LocalDate firstDay = month.withDayOfMonth(1);
+        LocalDate lastDay = month.with(TemporalAdjusters.lastDayOfMonth());
+        LambdaQueryWrapper<Schedule> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Schedule::getMemberId, userId)
+                .apply("date >= {0}", firstDay)
+                .apply("date < {0}", lastDay.plusDays(1));
+        return scheduleService.list(queryWrapper);
+    }
+
+    /**
+     * 计算单月存欠班天数
      * 规则：
      * - 当月应排班天数 = 当月天数 - 周末天数 - 法定假日(非周末) + 调休上班日
-     * - 存欠班 = 实际工作排班天数 - 应排班天数 + 法定假日上班天数(额外存班)
+     * - 存欠班 = 实际工作排班天数 - 应排班天数
+     * - 如果是加入当月，从加入日开始计算（不欠加入前的天数）
      * - 正数=存班，负数=欠班
      *
-     * @param schedules 成员的排班列表
+     * @param schedules 成员当月的排班列表
      * @param shiftMap  班种映射
      * @param year      年份
      * @param month     月份
-     * @return 存欠班天数（正数=存班，负数=欠班）
+     * @param joinTime  加入科室时间（可为null）
+     * @return 单月存欠班天数（正数=存班，负数=欠班）
      */
-    private int calculateBalanceDays(List<Schedule> schedules, Map<Long, Shift> shiftMap, int year, int month) {
+    private int calculateBalanceDaysForMonth(List<Schedule> schedules, Map<Long, Shift> shiftMap,
+                                              int year, int month, LocalDate joinTime) {
         // 未来月份不计算欠存，直接返回0
         LocalDate now = LocalDate.now();
         LocalDate firstDay = LocalDate.of(year, month, 1);
         if (firstDay.isAfter(now.withDayOfMonth(1))) {
             return 0;
+        }
+
+        // 如果是加入当月，从加入日开始计算，避免欠加入前的天数
+        if (joinTime != null) {
+            LocalDate joinMonthStart = joinTime.withDayOfMonth(1);
+            if (firstDay.equals(joinMonthStart) && joinTime.isAfter(firstDay)) {
+                firstDay = joinTime;
+            }
         }
 
         // 构建每日排班映射
@@ -270,10 +362,15 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
         // 当前月只计算到今天，历史月计算整月
-        LocalDate lastDay = firstDay.with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate lastDay = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
         boolean isCurrentMonth = !now.isAfter(lastDay);
         if (isCurrentMonth) {
             lastDay = now;
+        }
+
+        // 如果加入日在当月内且在lastDay之后，从加入日开始
+        if (joinTime != null && firstDay.isBefore(joinTime) && !joinTime.isAfter(lastDay)) {
+            firstDay = joinTime;
         }
 
         int expectedWorkDays = 0;   // 当月应排班天数

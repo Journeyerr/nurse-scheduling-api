@@ -60,6 +60,7 @@ CREATE TABLE `sys_department_member` (
     `join_time` DATE DEFAULT NULL COMMENT '加入时间',
     `is_creator` TINYINT(1) DEFAULT 0 COMMENT '是否为创建者 0-否 1-是',
     `is_admin` TINYINT(1) DEFAULT 0 COMMENT '是否为管理员 0-否 1-是',
+    `balance_days` INT(11) DEFAULT NULL COMMENT '存欠班天数（正数=存班，负数=欠班，累计值）',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标识 0-未删除 1-已删除',

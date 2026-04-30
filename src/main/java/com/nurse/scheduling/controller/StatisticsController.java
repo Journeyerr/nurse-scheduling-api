@@ -27,15 +27,17 @@ public class StatisticsController {
      *
      * @param year 年份
      * @param month 月份
+     * @param departmentId 科室ID（用于计算累计存欠班）
      * @return 我的统计信息
      */
     @GetMapping("/my")
     public Result<MyStatisticsResponse> getMyStatistics(@RequestParam Integer year,
-                                                         @RequestParam Integer month) {
+                                                         @RequestParam Integer month,
+                                                         @RequestParam(required = false) String departmentId) {
         String userId = UserContext.getUserId();
-        log.info("获取我的排班统计，用户ID：{}，年份：{}，月份：{}", userId, year, month);
+        log.info("获取我的排班统计，用户ID：{}，年份：{}，月份：{}，科室ID：{}", userId, year, month, departmentId);
 
-        MyStatisticsResponse response = statisticsService.getMyStatistics(userId, year, month);
+        MyStatisticsResponse response = statisticsService.getMyStatistics(userId, year, month, departmentId);
         return Result.ok(response);
     }
 

@@ -15,6 +15,7 @@ import com.nurse.scheduling.entity.User;
 import com.nurse.scheduling.mapper.ScheduleMapper;
 import com.nurse.scheduling.service.ScheduleService;
 import com.nurse.scheduling.service.ShiftService;
+import com.nurse.scheduling.service.StatisticsService;
 import com.nurse.scheduling.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private StatisticsService statisticsService;
 
     @Override
     public List<ScheduleResponse> getMonthlySchedule(String departmentId, Integer year, Integer month) {
@@ -91,6 +95,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         
         save(schedule);
         log.info("排班添加成功，排班ID：{}", schedule.getId());
+
+        // 重算存欠班
+        statisticsService.recalculateAndSaveBalanceDays(schedule.getMemberId(), schedule.getDepartmentId());
         
         ScheduleResponse response = new ScheduleResponse();
         BeanUtil.copyProperties(schedule, response);
@@ -118,15 +125,27 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
             return null;
         }
         
+        // 记录变更前的成员（用于重算存欠班）
+        LocalDate oldDate = schedule.getDate();
+        Long oldMemberId = schedule.getMemberId();
+        Long oldDeptId = schedule.getDepartmentId();
+
+        // 更新排班
         schedule.setMemberId(Long.parseLong(request.getMemberId()));
         schedule.setDate(request.getDate());
         schedule.setShiftId(Long.parseLong(request.getShiftId()));
         schedule.setShiftCode(shift.getCode());
         schedule.setShiftName(shift.getName());
         schedule.setShiftColor(shift.getColor());
-        
+
         updateById(schedule);
         log.info("排班更新成功，排班ID：{}", schedule.getId());
+
+        // 重算存欠班（新旧成员都可能受影响）
+        if (!oldDate.equals(request.getDate()) || !oldMemberId.equals(Long.parseLong(request.getMemberId()))) {
+            statisticsService.recalculateAndSaveBalanceDays(oldMemberId, oldDeptId);
+        }
+        statisticsService.recalculateAndSaveBalanceDays(Long.parseLong(request.getMemberId()), oldDeptId);
         
         ScheduleResponse response = new ScheduleResponse();
         BeanUtil.copyProperties(schedule, response);
@@ -140,7 +159,13 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
     @Override
     public void deleteSchedule(String scheduleId) {
         log.info("删除排班，排班ID：{}", scheduleId);
-        removeById(Long.parseLong(scheduleId));
+        // 先获取排班信息用于重算存欠班
+        Schedule schedule = getById(Long.parseLong(scheduleId));
+        if (schedule != null) {
+            removeById(Long.parseLong(scheduleId));
+            // 重算存欠班
+            statisticsService.recalculateAndSaveBalanceDays(schedule.getMemberId(), schedule.getDepartmentId());
+        }
         log.info("排班删除成功，排班ID：{}", scheduleId);
     }
 
@@ -156,8 +181,14 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         
         // 批量删除
         if (request.getDeletes() != null && !request.getDeletes().isEmpty()) {
+            Long deptId = Long.parseLong(departmentId);
             for (String scheduleId : request.getDeletes()) {
-                removeById(Long.parseLong(scheduleId));
+                Schedule schedule = getById(Long.parseLong(scheduleId));
+                if (schedule != null) {
+                    removeById(Long.parseLong(scheduleId));
+                    // 重算存欠班
+                    statisticsService.recalculateAndSaveBalanceDays(schedule.getMemberId(), deptId);
+                }
                 log.debug("删除排班：{}", scheduleId);
             }
         }
@@ -201,6 +232,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 
                 save(schedule);
                 log.debug("添加排班：{}", schedule.getId());
+
+                // 重算存欠班
+                statisticsService.recalculateAndSaveBalanceDays(schedule.getMemberId(), schedule.getDepartmentId());
                 
                 ScheduleResponse response = new ScheduleResponse();
                 BeanUtil.copyProperties(schedule, response);
