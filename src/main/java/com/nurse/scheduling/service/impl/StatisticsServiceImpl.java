@@ -8,8 +8,8 @@ import com.nurse.scheduling.entity.DepartmentMember;
 import com.nurse.scheduling.entity.Schedule;
 import com.nurse.scheduling.entity.Shift;
 import com.nurse.scheduling.entity.User;
+import com.nurse.scheduling.mapper.ScheduleMapper;
 import com.nurse.scheduling.service.DepartmentMemberService;
-import com.nurse.scheduling.service.ScheduleService;
 import com.nurse.scheduling.service.ShiftService;
 import com.nurse.scheduling.service.StatisticsService;
 import com.nurse.scheduling.service.UserService;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class StatisticsServiceImpl implements StatisticsService {
 
     @Autowired
-    private ScheduleService scheduleService;
+    private ScheduleMapper scheduleMapper;
 
     @Autowired
     private DepartmentMemberService departmentMemberService;
@@ -57,7 +57,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             queryWrapper.eq(Schedule::getDepartmentId, Long.parseLong(departmentId));
         }
 
-        List<Schedule> schedules = scheduleService.list(queryWrapper);
+        List<Schedule> schedules = scheduleMapper.selectList(queryWrapper);
 
         // 统计各班次数量
         Map<Long, Long> shiftCountMap = schedules.stream()
@@ -139,7 +139,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .apply("YEAR(date) = {0}", year)
                 .apply("MONTH(date) = {0}", month);
 
-        List<Schedule> schedules = scheduleService.list(queryWrapper);
+        List<Schedule> schedules = scheduleMapper.selectList(queryWrapper);
 
         // 获取所有班次信息
         List<Shift> shifts = shiftService.list();
@@ -320,7 +320,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         queryWrapper.eq(Schedule::getMemberId, userId)
                 .apply("date >= {0}", firstDay)
                 .apply("date < {0}", lastDay.plusDays(1));
-        return scheduleService.list(queryWrapper);
+        return scheduleMapper.selectList(queryWrapper);
     }
 
     /**
